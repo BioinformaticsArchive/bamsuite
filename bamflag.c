@@ -22,8 +22,7 @@
 #include <time.h>
 #include <sys/ioctl.h>
 #include <bam.h>
-#include "progressbar.h"
-#include "node.h"
+//#include "node.h"
 
 #define MAXFILEBUFFLENGTH 1000
 #define INFTY 65535
@@ -33,6 +32,82 @@
 #define BAM_UNIQUE_MAP 0x800
 #define UPDATE_NH_TAG 1
 #define MARK_FLAG_FIELD 2 
+
+/**********************************************************************************************************************************************/
+
+struct elem {
+    char character;
+    int  count[2];
+    struct elem* next;
+    struct elem* tree;
+};
+
+typedef struct elem node_type;
+
+/**********************************************************************************************************************************************/
+
+void add_str(node_type **node, char *str, int strand) {
+    node_type** ptr = node;
+    node_type* new = NULL;
+
+    char c = str[0];
+
+    if(c==0) return;
+
+    while((*ptr)!=NULL) {
+        if((*ptr)->character < c) ptr = &((*ptr)->next); else break;
+    }
+
+    int flag = 1;
+    if((*ptr)!=NULL) {
+        if((*ptr)->character == c) {
+            flag=0;
+        }
+    }
+
+    if(flag) {
+        new = (node_type*) malloc(sizeof(node_type));
+        new->character = c;
+        new->count[0] = new->count[1] = 0;
+        new->next = (*ptr);
+        new->tree = NULL;
+        (*ptr) = new;
+    }
+
+    if(str[1]==0) {
+        (*ptr)->count[strand]++;
+    }
+    else {
+        add_str(&(*ptr)->tree, str + 1, strand);
+    }
+}
+
+int recall_count(node_type *node, char *str, int strand) {
+    node_type* current = node;
+
+    while(current!=NULL) {
+        if(current->character == str[0]) {
+            return(str[1]==0 ? current->count[strand] : recall_count(current->tree, str+1, strand));
+        }
+        current = current->next;
+    }
+
+    return(0);
+}
+
+void destroy(node_type *node) {
+    node_type* current = node;
+
+    while(current!=NULL) {
+        if(current->tree!=NULL) destroy(current->tree);
+        node_type* next = current->next;
+        free(current);
+        current = next;
+    }
+}
+
+/**********************************************************************************************************************************************/
+
 
 int main(int argc,char* argv[]) {
     time_t timestamp, current;
